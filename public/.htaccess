@@ -20,7 +20,15 @@ Options -Indexes
 
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule ^ index.php [L,NC]
+  RewriteRule ^([^/]+)/([^/]+)/([^/]+)/?$  index.php?controller=$1&action=$2&id=$3 [L,NC]
+  
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^([^/]+)/([^/]+)/?$  index.php?controller=$1&action=$2 [L,NC]
+  
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^([^/]+)/?$  index.php?controller=$1&action=view [L,NC]
 
 </IfModule>
 
