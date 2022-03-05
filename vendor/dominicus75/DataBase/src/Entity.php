@@ -69,7 +69,8 @@ class Entity extends Table {
     }
 
     /**
-     * @return 
+     * Set state of this object
+     * @return self
      */
     protected function setStatus(int $status): self { 
         $this->status = $status;
