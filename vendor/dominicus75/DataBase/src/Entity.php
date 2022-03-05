@@ -37,11 +37,12 @@ class Entity extends Table {
     public function __construct(
         ArrayAccess|\Dominicus75\DataBase\DB $confOrInstance, 
         string $table, 
-        array $ids = []
+        array $ids = [],
+        array $columns = []
     ) {
         try {
             parent::__construct($confOrInstance, $table);
-            $this->initProperties($ids);
+            $this->initProperties(ids: $ids, columns: $columns);
         } catch(\PDOException $pdoe) {
             throw $pdoe;
         }
@@ -51,14 +52,10 @@ class Entity extends Table {
      * @param array $ids primary key(s)
      * @return self
      */
-    private function initProperties(array $ids = []): self {
-
-        foreach($this->columns as $name => $properties) {
-            $this->properties[$name] = null;
-        }
+    private function initProperties(array $ids = [], array $columns = []): self {
 
         if(!empty($ids)) {
-            foreach($this->select($ids) as $name => $value) {
+            foreach($this->select(pk: $ids, columns: $columns) as $name => $value) {
                 $this->setProperty($name, $value);
             }
             $this->setStatus(self::FILLED);
@@ -106,7 +103,7 @@ class Entity extends Table {
      *
      */
     public function setProperty(string $name, $value): self {
-        if(!$this->hasProperty($name)) {
+        if(!$this->hasColumn($name)) {
             throw new InvalidPropertyNameException("The $name property is not exists");
         } elseif($this->isPrimaryAndAutoIncrement($name)) {
             throw new InvalidPropertyNameException("$name is a primary key and it has auto_increment attribute!");;
@@ -224,16 +221,29 @@ class Entity extends Table {
      * @param array $pk primary key(s)
      * if this parameter is null, select all of this type from table
      */
-    public function select(array $pk = []): array {
+    public function select(array $pk = [], array $columns = []): array {
 
         switch($this->database->getDriver()) {
             case 'mysql':
-                if(!is_null($pk)) {
-                    $sql = "SELECT * FROM `".$this->name."` WHERE ";
+
+                $fields = '';
+
+                if(empty($columns)) {
+                    $fields = '*';
+                } else {
+                    foreach($columns as $column) {
+                        if($this->hasColumn($column)) { $fields .= "`$column`, "; }
+                    }
+                    $fields = rtrim($fields, ', ');
+                }
+
+                if(!empty($pk)) {
+                    $sql = "SELECT $fields FROM `".$this->name."` WHERE ";
                     $sql .= $this->pkToQueryString($pk);
                 } else {
-                    $sql = "SELECT * FROM `".$this->name."`";
+                    $sql = "SELECT $fields FROM `".$this->name."`";
                 }
+                
                 break;
         }
 
