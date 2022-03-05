@@ -33,10 +33,10 @@ class Table
      *
      * @var array what contains the name of the primary key column (e. g. 'id')
      * and this column has auto_increment attribute or not in form
-     * $primaryKey = ['name' => string, 'auto_increment' => bool]
+     * $primaryKey[] = ['name' => string, 'auto_increment' => bool]
      *
      */
-    protected array $primaryKey;
+    protected array $primaryKeys;
 
     /**
      *
@@ -74,7 +74,7 @@ class Table
             }
 
             $this->setColumns();
-            $this->setPrimaryKey();
+            $this->setPrimaryKeys();
 
         } catch(\PDOException $pdoe) { throw $pdoe; }
 
@@ -102,9 +102,8 @@ class Table
 
             if($statement->execute()) {
                 if($columns = $statement->fetchAll()) {
-                    $result = [];
                     foreach($columns as $column) {
-                        $type = (preg_match("/(char|text)/is", $column['Type'])) ? PDO::PARAM_STR : PDO::PARAM_INT;
+                        $type = (preg_match("/(char|text|date|enum|set)/is", $column['Type'])) ? PDO::PARAM_STR : PDO::PARAM_INT;
                         $nullable = ($column['Field'] == 'YES') ? true : false;
                         $this->columns[$column['Field']] = [
                             'bind'     => ":".$column['Field'], 
@@ -126,7 +125,6 @@ class Table
 
     }
 
-  
     /**
      *
      * @return self
@@ -136,7 +134,7 @@ class Table
      * if PDOStatement::fetchAll() or execute() returns with false.
      *
      */
-    private function setPrimaryKey(): self {
+    private function setPrimaryKeys(): self {
 
         if($this->database->hasTable($this->name)) {
 
@@ -151,15 +149,13 @@ class Table
             if($statement->execute()) {
                 if($columns = $statement->fetchAll()) { 
                     $index = 0;
-                    while($index < count($columns)) { 
-                        if($columns[$index]['Key'] == 'PRI') {
-                            $this->primaryKey['name']           = $columns[$index]['Field'];
-                            $this->primaryKey['auto_increment'] = ($columns[$index]['Extra'] == 'auto_increment');
-                            return $this;
+                    foreach($columns as $index => $column) { 
+                        if($column['Key'] == 'PRI') {
+                            $this->primaryKeys[$index]['name']           = $column['Field'];
+                            $this->primaryKeys[$index]['auto_increment'] = ($column['Extra'] == 'auto_increment');
                         }
-                        $index++;
                     }
-                    throw new \PDOException('Primary key not found in this table.');
+                    return $this;
                 } else {
                     throw new \PDOException('PDOStatement::fetchAll() function returned with false');
                 }
@@ -219,44 +215,25 @@ class Table
 
     /**
      *
-     * @return string name of the primary key column (e. g. 'id')
+     * @return array names of the primary keys columns (e. g. 'id')
      *
      */
-    public function getPrimaryKey(): string { return $this->primaryKey['name']; }
+    public function getPrimaryKeys(): array { 
+        $result = [];
+        foreach($this->primaryKeys as $pk) { $result[] = $pk['name']; }
+        return $result; 
+    }
 
     /**
-     * Check if a PRIMARY KEY is auto increment or not
+     * Check if the given key is PRIMARY KEY and it has auto increment or not
      * @return bool
      *
      */
-    public function isPrimaryAutoIncrement(): bool { return $this->primaryKey['auto_increment']; }
-
-    /**
-     * Run a select statement in this table
-     * @param int|string|null $pk primary key
-     * if this parameter is null, select all of this type from table
-     */
-    public function select(int|string|null $pk = null): array {
-
-        switch($this->database->getDriver()) {
-            case 'mysql':
-                if(!is_null($pk)) {
-                    $sql = "SELECT * FROM `".$this->name."` WHERE `".$this->getPrimaryKey()."` = '$pk'";
-                } else {
-                    $sql = "SELECT * FROM `".$this->name."`";
-                }
-                break;
+    public function isPrimaryAndAutoIncrement(int|string $key): bool {
+        foreach($this->primaryKeys as $pk) { 
+            if(in_array($key, $pk) && $pk['auto_increment']) { return true; }
         }
-
-        $statement = $this->database->query($sql);
-
-        if($statement->execute()) {
-            $result = (is_null($pk)) ? $statement->fetchAll() : $statement->fetch(PDO::FETCH_ASSOC);
-            return ($result) ? $result : [];
-        } else {
-            throw new \PDOException('PDOStatement::execute() function returned with false');
-        }
-
+        return false;
     }
 
 }

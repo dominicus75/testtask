@@ -36,27 +36,29 @@ class Entity extends Table {
 
     public function __construct(
         ArrayAccess|\Dominicus75\DataBase\DB $confOrInstance, 
-        string $table, int|string|null $id = null
+        string $table, 
+        array $ids = []
     ) {
         try {
             parent::__construct($confOrInstance, $table);
-            $this->initProperties($id);
+            $this->initProperties($ids);
         } catch(\PDOException $pdoe) {
             throw $pdoe;
         }
     }
     
     /**
+     * @param array $ids primary key(s)
      * @return self
      */
-    private function initProperties(int|string|null $id = null): self {
+    private function initProperties(array $ids = []): self {
 
         foreach($this->columns as $name => $properties) {
             $this->properties[$name] = null;
         }
 
-        if(!is_null($id)) {
-            foreach($this->select($id) as $name => $value) {
+        if(!empty($ids)) {
+            foreach($this->select($ids) as $name => $value) {
                 $this->setProperty($name, $value);
             }
             $this->setStatus(self::FILLED);
@@ -105,7 +107,7 @@ class Entity extends Table {
     public function setProperty(string $name, $value): self {
         if(!$this->hasProperty($name)) {
             throw new InvalidPropertyNameException("The $name property is not exists");
-        } elseif($name === $this->getPrimaryKey() && $this->isPrimaryAutoIncrement()) {
+        } elseif($this->isPrimaryAndAutoIncrement($name)) {
             throw new InvalidPropertyNameException("$name is a primary key and it has auto_increment attribute!");;
         } elseif(!$this->issetProperty($name)) {
             $this->properties[$name] = $value;
@@ -125,7 +127,7 @@ class Entity extends Table {
     public function updateProperty(string $name, $value): self {
         if(!$this->hasProperty($name)) {
             throw new InvalidPropertyNameException("The $name property is not exists");
-        } elseif($name === $this->getPrimaryKey() && $this->isPrimaryAutoIncrement()) {
+        } elseif($this->isPrimaryAndAutoIncrement($name)) {
             throw new InvalidPropertyNameException("$name is a primary key and it is immutable!");
         } else {
             $this->updated[$name] = $value;
@@ -183,6 +185,69 @@ class Entity extends Table {
 	function getUpdated(): array { return $this->updated; }
 
     /**
+     * Convert primary key array to sql query string
+     * @return string
+     */
+    public function pkToQueryString(array $values = []): string {
+
+        $pk = $this->getPrimaryKeys();
+
+        if(empty($values)) {
+            foreach($pk as $name) { $values[] = $this->getProperty($name); }
+        } 
+
+        $result = '';
+
+        if(count($pk) == 1) {
+            if($this->status == self::UPDATED || $this->status == self::FILLED) {
+                $result .= '`'.$pk[0].'` = '.$this->columns[$pk[0]]['bind'].'';
+            } else {
+                $result .= '`'.$pk[0].'` = \''.$values[0].'\'';
+            }
+        } else {
+            foreach(array_combine($pk, $values) as $key => $value) {
+                if($this->status == self::UPDATED || $this->status == self::FILLED) {
+                    $result .= "`$key` = ".$this->columns[$key]['bind']." AND ";
+                } else {
+                    $result .= "`$key` = '$value' AND ";
+                }
+            }
+            $result = rtrim($result, 'AND ');
+        }
+
+        return $result;
+    }
+
+    /**
+     * Run a select statement in this table
+     * @param array $pk primary key(s)
+     * if this parameter is null, select all of this type from table
+     */
+    public function select(array $pk = []): array {
+
+        switch($this->database->getDriver()) {
+            case 'mysql':
+                if(!is_null($pk)) {
+                    $sql = "SELECT * FROM `".$this->name."` WHERE ";
+                    $sql .= $this->pkToQueryString($pk);
+                } else {
+                    $sql = "SELECT * FROM `".$this->name."`";
+                }
+                break;
+        }
+
+        $statement = $this->database->query($sql);
+
+        if($statement->execute()) {
+            $result = (empty($pk)) ? $statement->fetchAll() : $statement->fetch(PDO::FETCH_ASSOC);
+            return ($result) ? $result : [];
+        } else {
+            throw new \PDOException('PDOStatement::execute() function returned with false');
+        }
+
+    }
+
+    /**
      * Insert this Entity into the table
      * @return bool true, if success, false otherwise 
      */
@@ -197,7 +262,7 @@ class Entity extends Table {
                     $variables = '';
                 
                     foreach($this->columns as $name => $properties) {
-                        if($name == $this->primaryKey['name'] && $this->primaryKey['auto_increment']) {
+                        if($this->isPrimaryAndAutoIncrement($name)) {
                             continue;
                         } else {
                             $fields .= '`'.$name.'`, ';
@@ -216,7 +281,7 @@ class Entity extends Table {
             $statement = $this->database->prepare($sql);
 
             foreach($this->columns as $name => $properties) {
-                if($name == $this->getPrimaryKey() && $this->isPrimaryAutoIncrement()) {
+                if($this->isPrimaryAndAutoIncrement($name)) {
                     continue;
                 } else {
                     if(is_null($this->properties[$name]) && !$properties['nullable']) {
@@ -251,14 +316,30 @@ class Entity extends Table {
                       $sql .= $column."` = ".$this->columns[$column]['bind'].", ";
                     }
                     $sql = rtrim($sql, ', ');
-                    $sql .= " WHERE `".$this->getPrimaryKey()."` = ".$this->columns[$this->getPrimaryKey()]['bind'];
+                    $sql .= " WHERE ".$this->pkToQueryString();
                     
                     break;
             }
 
             $statement = $this->database->prepare($sql);
-            $statement->bindParam($this->columns[$this->getPrimaryKey()]['bind'], $this->properties[$this->getPrimaryKey()], $this->columns[$this->getPrimaryKey()]['type']);
-      
+
+            $pk = $this->getPrimaryKeys();
+            if(count($pk) == 1) {
+                $statement->bindParam(
+                    $this->columns[$pk[0]]['bind'], 
+                    $this->properties[$pk[0]], 
+                    $this->columns[$pk[0]]['type']
+                );
+            } else {
+                foreach($pk as $key) {
+                    $statement->bindParam(
+                        $this->columns[$key]['bind'], 
+                        $this->properties[$key], 
+                        $this->columns[$key]['type']
+                    );
+                }
+            }
+
             foreach($this->getUpdated() as $column => $value) {
                 if(is_null($value) && !$this->columns[$column]['nullable']) {
                     throw new InvalidPropertyValueException('This value can\'t be null');
@@ -286,16 +367,27 @@ class Entity extends Table {
             switch($this->database->getDriver()) {
                 case 'mysql':
 
-                    $pk   = $this->getPrimaryKey();
                     $sql  = "DELETE FROM `".$this->name;
-                    $sql .= "` WHERE `".$pk."` = ".$this->columns[$pk]['bind'];
+                    $sql .= "` WHERE ".$this->pkToQueryString();
                     $statement = $this->database->prepare($sql);
-                    $statement->bindParam(
-                        $this->columns[$pk]['bind'],
-                        $this->properties[$pk],
-                        $this->columns[$pk]['type']
-                    );
-                         
+
+                    $pk = $this->getPrimaryKeys();
+                    if(count($pk) == 1) {
+                        $statement->bindParam(
+                            $this->columns[$pk[0]]['bind'], 
+                            $this->properties[$pk[0]], 
+                            $this->columns[$pk[0]]['type']
+                        );
+                    } else {
+                        foreach($pk as $key) {
+                            $statement->bindParam(
+                                $this->columns[$key]['bind'], 
+                                $this->properties[$key], 
+                                $this->columns[$key]['type']
+                            );
+                        }
+                    }
+                               
                     break;
             }
       
