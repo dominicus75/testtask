@@ -39,6 +39,11 @@ class Table
     protected array $primaryKeys;
 
     /**
+      * @var array Relations of this table
+     */
+    protected array $relations;
+
+    /**
      *
      * @var array list of columns, what belong to the current table
      *
@@ -75,6 +80,7 @@ class Table
 
             $this->setColumns();
             $this->setPrimaryKeys();
+            $this->setRelations();
 
         } catch(\PDOException $pdoe) { throw $pdoe; }
 
@@ -148,7 +154,6 @@ class Table
 
             if($statement->execute()) {
                 if($columns = $statement->fetchAll()) { 
-                    $index = 0;
                     foreach($columns as $index => $column) { 
                         if($column['Key'] == 'PRI') {
                             $this->primaryKeys[$index]['name']           = $column['Field'];
@@ -167,6 +172,45 @@ class Table
             throw new \PDOException($this->name. 'is not found in this database');
         }
 
+    }
+
+    /**
+     * Set relations of this table
+     * @return self
+     */
+    protected function setRelations(): self {
+
+        if($this->database->hasTable($this->name)) {
+
+            switch($this->database->getDriver()) {
+                case 'mysql':
+                    $sql = "SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_NAME = '".$this->name."'";
+                    break;
+            }
+
+            $statement = $this->database->query($sql);
+
+            if($statement->execute()) {
+                if($columns = $statement->fetchAll()) { 
+                    foreach($columns as $index => $column) { 
+                        $this->relations[$index]['referenced_column'] = $column['REFERENCED_COLUMN_NAME'];
+                        $this->relations[$index]['referer_column']    = $column['COLUMN_NAME'];
+                        $this->relations[$index]['referer_table']     = $column['TABLE_NAME'];
+                    }
+                    return $this;
+                } else {
+                    $this->relations = [];
+                    return $this;
+                    }
+            } else {
+                $this->relations = [];
+                return $this;
+            }
+
+        } else {
+            throw new \PDOException($this->name. 'is not found in this database');
+        }
+       
     }
 
     /**
