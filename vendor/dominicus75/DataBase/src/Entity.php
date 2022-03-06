@@ -56,8 +56,10 @@ class Entity extends Table {
     }
     
     /**
+     * 
      * @param array $ids primary key(s)
      * @return self
+     * 
      */
     private function initProperties(array $ids = [], array $columns = []): self {
 
@@ -73,8 +75,10 @@ class Entity extends Table {
     }
 
     /**
+     * 
      * Set state of this object
      * @return self
+     * 
      */
     protected function setStatus(int $status): self { 
         $this->status = $status;
@@ -82,7 +86,9 @@ class Entity extends Table {
     }
 
     /**
+     * 
      * @return self
+     * 
      */
     protected function setRelatedEntities(): self {
         if(empty($this->relations)) { 
@@ -97,17 +103,30 @@ class Entity extends Table {
     }
 
     /**
+     * 
      * @return array the related entities
+     * 
      */
     public function getRelatedEntities(): array { return $this->related; }
 
     /**
+     * 
+     * @param string $name name of related Entity (table name)
+     * @return bool true, if given Entity exists, false otherwise
+     * 
+     */
+    public function hasRelatedEntity(string $name): bool {
+        return array_key_exists($name, $this->related); 
+    }
+
+    /**
+     * 
      * @param string $name name of related Entity (table name)
      * @return Entity a related Entity instance
      * @return bool false, if given Entity is not exists
+     * 
      */
-    public function getRelatedEntity(string $name): bool|Entity {
-        if(!array_key_exists($name, $this->related)) { return false; }
+    public function getRelatedEntity(string $name): Entity {
         return $this->related[$name];
     }
 
@@ -210,18 +229,22 @@ class Entity extends Table {
 	/**
 	 * 
 	 * @return array
+     * 
 	 */
 	function getProperties(): array { return $this->properties;	}
 	
 	/**
 	 * 
 	 * @return array
+     * 
 	 */
 	function getUpdated(): array { return $this->updated; }
 
     /**
+     * 
      * Convert primary key array to sql query string
      * @return string
+     * 
      */
     public function pkToQueryString(array $values = []): string {
 
@@ -254,9 +277,11 @@ class Entity extends Table {
     }
 
     /**
+     * 
      * Run a select statement in this table
      * @param array $pk primary key(s)
      * if this parameter is null, select all of this type from table
+     * 
      */
     public function select(array $pk = [], array $columns = []): array {
 
@@ -296,8 +321,10 @@ class Entity extends Table {
     }
 
     /**
+     * 
      * Insert this Entity into the table
      * @return bool true, if success, false otherwise 
+     * 
      */
     public function insert(): bool {
 
@@ -349,8 +376,10 @@ class Entity extends Table {
     }
 
     /**
+     * 
      * Update Entity in database
      * @return bool true, if success, false otherwise 
+     * 
      */
     public function update(): bool {
 
@@ -405,8 +434,10 @@ class Entity extends Table {
     }
 
     /**
+     * 
      * Delete a row from the datatable
      * @return bool true, if success, false otherwise 
+     * 
      */
     public function delete(): bool {
   
