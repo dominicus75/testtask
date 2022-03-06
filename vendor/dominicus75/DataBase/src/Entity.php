@@ -34,6 +34,12 @@ class Entity extends Table {
      */
     protected int $status = self::EMPTY;
 
+    /**
+     * @var array Related entities in form
+     * $related[] = [string $name => Entity $entity];
+     */
+    protected array $related;
+
     public function __construct(
         ArrayAccess|\Dominicus75\DataBase\DB $confOrInstance, 
         string $table, 
@@ -43,6 +49,7 @@ class Entity extends Table {
         try {
             parent::__construct($confOrInstance, $table);
             $this->initProperties(ids: $ids, columns: $columns);
+            $this->setRelatedEntities();
         } catch(\PDOException $pdoe) {
             throw $pdoe;
         }
@@ -72,6 +79,36 @@ class Entity extends Table {
     protected function setStatus(int $status): self { 
         $this->status = $status;
         return $this; 
+    }
+
+    /**
+     * @return self
+     */
+    protected function setRelatedEntities(): self {
+        if(empty($this->relations)) { 
+            $this->related = [];
+            return $this;
+        } else {
+            foreach($this->getRelations() as $relation) {
+                $this->related[$relation['referer_table']] = new Entity($this->database, $relation['referer_table']);
+            }
+            return $this;
+        }
+    }
+
+    /**
+     * @return array the related entities
+     */
+    public function getRelatedEntities(): array { return $this->related; }
+
+    /**
+     * @param string $name name of related Entity (table name)
+     * @return Entity a related Entity instance
+     * @return bool false, if given Entity is not exists
+     */
+    public function getRelatedEntity(string $name): bool|Entity {
+        if(!array_key_exists($name, $this->related)) { return false; }
+        return $this->related[$name];
     }
 
     /**

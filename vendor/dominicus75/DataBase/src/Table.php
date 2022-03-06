@@ -184,7 +184,9 @@ class Table
 
             switch($this->database->getDriver()) {
                 case 'mysql':
-                    $sql = "SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_NAME = '".$this->name."'";
+                    $sql = "SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_COLUMN_NAME ";
+                    $sql .= "FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE ";
+                    $sql .= "WHERE REFERENCED_TABLE_NAME = '".$this->name."'";
                     break;
             }
 

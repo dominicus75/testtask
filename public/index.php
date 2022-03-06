@@ -16,6 +16,6 @@ $employee = new \Application\Model\Employee(new \Dominicus75\Config\Config('mysq
 $employee->insert();*/
 
 echo '<pre>';
-var_dump($employee->foreignKeyExists('salaries', 'emp_no'));
+var_dump($employee->foreignKeyExists('titles', 'emp_no'));
 var_dump($employee);
 echo '</pre>';
