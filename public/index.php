@@ -4,7 +4,7 @@ setlocale(LC_ALL, 'hu_HU.UTF-8');
 
 require_once dirname(__DIR__).DIRECTORY_SEPARATOR.'vendor'.DIRECTORY_SEPARATOR.'autoload.php';
 
-$employee = new \Application\Model\Department(new \Dominicus75\Config\Config('mysql'), 'departments', ['d003']);
+$employee = new \Application\Model\Employee(new \Dominicus75\Config\Config('mysql'), 'employees', [10002]);
 /*$employee->setProperties([
     "emp_no" => 110022,
     "birth_date" => "1956-09-12",
@@ -16,5 +16,6 @@ $employee = new \Application\Model\Department(new \Dominicus75\Config\Config('my
 $employee->insert();*/
 
 echo '<pre>';
+var_dump($employee->foreignKeyExists('salaries', 'emp_no'));
 var_dump($employee);
 echo '</pre>';

@@ -178,7 +178,7 @@ class Table
      * Set relations of this table
      * @return self
      */
-    protected function setRelations(): self {
+    private function setRelations(): self {
 
         if($this->database->hasTable($this->name)) {
 
@@ -277,6 +277,26 @@ class Table
         foreach($this->primaryKeys as $pk) { 
             if(in_array($key, $pk) && $pk['auto_increment']) { return true; }
         }
+        return false;
+    }
+
+    /**
+     * @return array set of relations
+     */
+    public function getRelations(): array { return $this->relations; }
+
+    /**
+     * Checks if the given key exists in the given table
+     * @return bool 
+     */
+    public function foreignKeyExists(string $table, string $key): bool {
+
+        if(empty($this->relations)) { return false; }
+
+        foreach($this->relations as $relation) { 
+            if(in_array($key, $relation) && in_array($table, $relation)) { return true; }
+        }
+
         return false;
     }
 
