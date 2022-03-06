@@ -262,7 +262,7 @@ class Entity extends Table {
             } else {
                 $result .= '`'.$pk[0].'` = \''.$values[0].'\'';
             }
-        } else {
+        } else { 
             foreach(array_combine($pk, $values) as $key => $value) {
                 if($this->status == self::UPDATED || $this->status == self::FILLED) {
                     $result .= "`$key` = ".$this->columns[$key]['bind']." AND ";
