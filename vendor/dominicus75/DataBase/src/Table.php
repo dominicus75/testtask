@@ -271,6 +271,7 @@ class Table
     }
 
     /**
+     * 
      * Check if the given key is PRIMARY KEY and it has auto increment or not
      * @return bool
      *
@@ -283,13 +284,17 @@ class Table
     }
 
     /**
+     * 
      * @return array set of relations
+     * 
      */
     public function getRelations(): array { return $this->relations; }
 
     /**
+     * 
      * Checks if the given key exists in the given table
      * @return bool 
+     * 
      */
     public function foreignKeyExists(string $table, string $key): bool {
 
@@ -300,6 +305,80 @@ class Table
         }
 
         return false;
+    }
+
+    /**
+     * 
+     * @param int|string $key - key what looking for
+     * @param mixed $value - value what looking for
+     * @param string $table - table where looking for, optional
+     * Checks if the given value exists in this table
+     * @return bool
+     * 
+     */
+    public function valueExists(mixed $key, mixed $value, string $table = ''): bool {
+
+        if(empty($table)) {
+            $tbl = $this->getName();
+            if(!$this->hasColumn($key)) { return false; }
+        } elseif($this->database->hasTable($table)) {
+            $tbl = $table;
+        } else { return false; }
+
+        $sql = "SELECT EXISTS(SELECT `$key` FROM `$tbl` WHERE `$key` = :value)";
+        $statement = $this->database->prepare($sql);
+        $statement->bindParam(':value', $value);
+
+        if($statement->execute()) { return (bool) $statement->fetchColumn(); } 
+
+        return false;   
+
+    }
+
+    /**
+     * 
+     * @param array $keys - primary key(s) and its vale what looking for
+     * @param string $table - table where looking for, optional
+     * Checks if the given value exists in this table
+     * @return bool
+     * 
+     */
+    public function pkValueExists(array $keys, string $table = ''): bool {
+
+        $fields = '';
+        $binds  = '';
+        $where  = '';
+
+        foreach($keys as $key => $value) {
+            $fields .= "`$key`, ";
+            $binds  .= ":$key, ";
+            $where  .= "`$key` = :$key AND ";
+        }
+        
+        $fields = rtrim($fields, ', ');
+        $binds  = rtrim($binds, ', ');
+        $where  = rtrim($where, ', AND ');
+
+        if(empty($table)) {
+            $tbl = $this->getName();
+        } elseif($this->database->hasTable($table)) {
+            $tbl = $table;
+        } else { return false; }
+
+        $sql = "SELECT EXISTS(SELECT $fields FROM `$tbl` WHERE $where)";
+        $statement = $this->database->prepare($sql); 
+
+        foreach($keys as $key => $value) {
+            $type = is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR;
+            $statement->bindValue(":$key", $value, $type); 
+        }
+
+        if($statement->execute()) { 
+            return (bool) $statement->fetchColumn(); 
+        } 
+
+        return false;   
+             
     }
 
 }
